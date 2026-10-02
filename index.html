@@ -667,10 +667,10 @@ function App() {
         const { B, C, F } = a.results;
         const bRatio = B.total ? B.found / B.total : 1;
         const cRatio = C.total ? C.found / C.total : 1;
-        const cRightMissed = (C.total - C.leftTotal) - (C.found - C.leftFound);
+        const cLeftMissed = C.leftTotal - C.leftFound;
         const fAll = F.total > 0 && F.found === F.total;
-        // B ผิด + C ผิดบางส่วนฝั่งขวา + F ถูกทั้งหมด → neglect
-        const neglect = bRatio < 0.6 && cRightMissed >= 1 && fAll;
+        // B ผิด + C ผิดบางส่วนฝั่งซ้าย + F (ฝั่งขวา) ถูกทั้งหมด → neglect ด้านซ้าย
+        const neglect = bRatio < 0.6 && cLeftMissed >= 1 && fAll;
         // C ผิด + F ถูก + B ถูก → เสี่ยง Balint syndrome
         const balint = cRatio < 0.75 && fAll && bRatio >= 0.8;
         // C ผิด (นับข้ามบรรทัด เข้าได้กับ oculomotor apraxia) + simultanagnosia → เสี่ยง PCA / Balint
@@ -1502,8 +1502,8 @@ function Results({ total, rawTotal, eduBonus, maxTotal, age, nickname, domains, 
         (concern.length > 0 || neglectFlag || balintFlag || simulFlag) && (React.createElement(Card, null,
             React.createElement(SectionTitle, { icon: React.createElement(AlertTriangle, { size: 16 }) }, "\u0E2A\u0E34\u0E48\u0E07\u0E17\u0E35\u0E48\u0E04\u0E27\u0E23\u0E43\u0E2B\u0E49\u0E04\u0E27\u0E32\u0E21\u0E2A\u0E19\u0E43\u0E08"),
             neglectFlag && (React.createElement("div", { className: "mb-2 rounded-xl px-3 py-2.5", style: { background: "#fdf3f0", border: `1px solid #f1d3cb` } },
-                React.createElement("div", { className: "text-sm font-bold", style: { color: C.accent } }, "\u0E2A\u0E07\u0E2A\u0E31\u0E22\u0E20\u0E32\u0E27\u0E30 neglect (\u0E21\u0E2D\u0E07\u0E02\u0E49\u0E32\u0E21\u0E1A\u0E32\u0E07\u0E14\u0E49\u0E32\u0E19\u0E02\u0E2D\u0E07\u0E20\u0E32\u0E1E)"),
-                React.createElement("div", { className: "mt-0.5 text-xs", style: { color: C.inkSoft } }, "\u0E2B\u0E32\u0E15\u0E31\u0E27 B \u0E44\u0E21\u0E48\u0E04\u0E23\u0E1A \u0E41\u0E25\u0E30\u0E1E\u0E25\u0E32\u0E14\u0E15\u0E31\u0E27 C \u0E1A\u0E32\u0E07\u0E2A\u0E48\u0E27\u0E19\u0E1D\u0E31\u0E48\u0E07\u0E02\u0E27\u0E32 \u0E41\u0E15\u0E48\u0E2B\u0E32\u0E15\u0E31\u0E27 F \u0E44\u0E14\u0E49\u0E04\u0E23\u0E1A \u2014 \u0E41\u0E19\u0E30\u0E19\u0E33\u0E43\u0E2B\u0E49\u0E1B\u0E23\u0E36\u0E01\u0E29\u0E32\u0E41\u0E1E\u0E17\u0E22\u0E4C"))),
+                React.createElement("div", { className: "text-sm font-bold", style: { color: C.accent } }, "\u0E2A\u0E07\u0E2A\u0E31\u0E22\u0E20\u0E32\u0E27\u0E30 neglect \u0E14\u0E49\u0E32\u0E19\u0E0B\u0E49\u0E32\u0E22 (\u0E21\u0E2D\u0E07\u0E02\u0E49\u0E32\u0E21\u0E14\u0E49\u0E32\u0E19\u0E0B\u0E49\u0E32\u0E22\u0E02\u0E2D\u0E07\u0E20\u0E32\u0E1E)"),
+                React.createElement("div", { className: "mt-0.5 text-xs", style: { color: C.inkSoft } }, "\u0E2B\u0E32\u0E15\u0E31\u0E27 B \u0E44\u0E21\u0E48\u0E04\u0E23\u0E1A \u0E41\u0E25\u0E30\u0E1E\u0E25\u0E32\u0E14\u0E15\u0E31\u0E27 C \u0E1A\u0E32\u0E07\u0E2A\u0E48\u0E27\u0E19\u0E1D\u0E31\u0E48\u0E07\u0E0B\u0E49\u0E32\u0E22 \u0E41\u0E15\u0E48\u0E2B\u0E32\u0E15\u0E31\u0E27 F (\u0E1D\u0E31\u0E48\u0E07\u0E02\u0E27\u0E32) \u0E44\u0E14\u0E49\u0E04\u0E23\u0E1A \u2014 \u0E41\u0E19\u0E30\u0E19\u0E33\u0E43\u0E2B\u0E49\u0E1B\u0E23\u0E36\u0E01\u0E29\u0E32\u0E41\u0E1E\u0E17\u0E22\u0E4C"))),
             pcaFlag && (React.createElement("div", { className: "mb-2 rounded-xl px-3 py-2.5", style: { background: "#fdf3f0", border: `1px solid #f1d3cb` } },
                 React.createElement("div", { className: "text-sm font-bold", style: { color: C.accent } }, "\u0E40\u0E2A\u0E35\u0E48\u0E22\u0E07 PCA (posterior cortical atrophy) \u0E2B\u0E23\u0E37\u0E2D Balint syndrome"),
                 React.createElement("div", { className: "mt-0.5 text-xs", style: { color: C.inkSoft } }, "\u0E21\u0E2D\u0E07\u0E20\u0E32\u0E1E\u0E23\u0E27\u0E21\u0E02\u0E2D\u0E07\u0E20\u0E32\u0E1E\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49 (simultanagnosia) \u0E41\u0E25\u0E30\u0E19\u0E31\u0E1A\u0E15\u0E31\u0E27 C \u0E1C\u0E34\u0E14 \u0E0B\u0E36\u0E48\u0E07\u0E2D\u0E32\u0E08\u0E40\u0E01\u0E34\u0E14\u0E08\u0E32\u0E01\u0E01\u0E32\u0E23\u0E19\u0E31\u0E1A\u0E02\u0E49\u0E32\u0E21\u0E1A\u0E23\u0E23\u0E17\u0E31\u0E14 (oculomotor apraxia) \u2014 \u0E40\u0E02\u0E49\u0E32\u0E44\u0E14\u0E49\u0E01\u0E31\u0E1A Balint syndrome / PCA \u0E41\u0E19\u0E30\u0E19\u0E33\u0E43\u0E2B\u0E49\u0E1B\u0E23\u0E36\u0E01\u0E29\u0E32\u0E41\u0E1E\u0E17\u0E22\u0E4C"))),
