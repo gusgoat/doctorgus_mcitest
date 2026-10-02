@@ -317,7 +317,7 @@ function buildItems(wordSet) {
     const curYearBE = now.getFullYear() + 543;
     return [
         { id: 22, domain: "memory", title: "ทวนคำที่เพิ่งจำ (registration)", kind: "registration",
-            prompt: "พิมพ์คำ 5 คำที่เพิ่งจำเมื่อครู่ให้ครบ — ทำทันที ไม่ต้องรอเวลา (ถูกข้อละ 1 คะแนน รวม 5 คะแนน)", pts: 5 },
+            prompt: "เลือกคำ 5 คำที่เพิ่งจำเมื่อครู่จากตัวเลือก 16 คำ — ทำทันที ไม่ต้องรอเวลา (ถูกข้อละ 1 คะแนน รวม 5 คะแนน)", pts: 5 },
         { id: 1, domain: "memory", title: "วัน เดือน ปี", kind: "orient",
             dow: DOW[now.getDay()], month: MONTHS[now.getMonth()], yearBE: curYearBE,
             MONTHS, DOW, pts: 3 },
@@ -1029,23 +1029,35 @@ function SerialView({ it, a, setA }) {
 }
 function RegistrationView({ it, a, setA }) {
     const v = a || {};
-    const inputs = v.inputs || ["", "", "", "", ""];
+    const picks = v.picks || {};
     const checked = v.checked || false;
-    const typed = v.typed || {};
-    const setInput = (i, val) => { const ni = [...inputs]; ni[i] = val; setA({ ...v, inputs: ni }); };
+    const choices = useMemo(() => _shuffle([...DEFAULT_WORDS, ...RECALL_DISTRACTORS]), []);
+    const nPicked = Object.keys(picks).length;
+    const toggle = (w) => {
+        if (checked)
+            return;
+        const np = { ...picks };
+        if (np[w])
+            delete np[w];
+        else if (nPicked < 5)
+            np[w] = true;
+        setA({ ...v, picks: np });
+    };
     const doCheck = () => {
         const t = {};
-        inputs.forEach((s) => { const n = normThai(s); if (n)
-            DEFAULT_WORDS.forEach((w) => { if (normThai(w) === n)
-                t[w] = true; }); });
-        setA({ ...v, inputs, typed: t, checked: true, done: true });
+        DEFAULT_WORDS.forEach((w) => { if (picks[w])
+            t[w] = true; });
+        setA({ ...v, picks, typed: t, checked: true, done: true });
     };
-    const got = DEFAULT_WORDS.filter((w) => typed[w]).length;
+    const got = DEFAULT_WORDS.filter((w) => picks[w]).length;
     return (React.createElement("div", { className: "space-y-2" }, !checked ? (React.createElement(React.Fragment, null,
-        React.createElement("p", { className: "text-xs", style: { color: C.muted } }, "\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E04\u0E33\u0E17\u0E35\u0E48\u0E40\u0E1E\u0E34\u0E48\u0E07\u0E08\u0E33\u0E43\u0E2B\u0E49\u0E44\u0E14\u0E49\u0E21\u0E32\u0E01\u0E17\u0E35\u0E48\u0E2A\u0E38\u0E14 (\u0E0A\u0E48\u0E2D\u0E07\u0E25\u0E30 1 \u0E04\u0E33)"),
-        inputs.map((s, i) => (React.createElement("input", { key: i, value: s, onChange: (e) => setInput(i, e.target.value), placeholder: `คำที่ ${i + 1}`, className: "w-full rounded-xl px-3 py-2.5 text-base outline-none", style: { border: `1px solid ${C.line}`, background: "#fff" } }))),
+        React.createElement("p", { className: "text-xs", style: { color: C.muted } },
+            "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E04\u0E33\u0E17\u0E35\u0E48\u0E40\u0E1E\u0E34\u0E48\u0E07\u0E08\u0E33\u0E08\u0E32\u0E01\u0E15\u0E31\u0E27\u0E40\u0E25\u0E37\u0E2D\u0E01 16 \u0E04\u0E33 (\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E44\u0E14\u0E49\u0E44\u0E21\u0E48\u0E40\u0E01\u0E34\u0E19 5 \u0E04\u0E33) \u00B7 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E41\u0E25\u0E49\u0E27 ",
+            nPicked,
+            " / 5"),
+        React.createElement("div", { className: "grid grid-cols-2 gap-2" }, choices.map((w) => React.createElement(Choice, { key: w, text: w, selected: !!picks[w], onClick: () => toggle(w) }))),
         React.createElement("div", { className: "mt-2 flex justify-end" },
-            React.createElement(Primary, { onClick: doCheck }, "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E04\u0E33\u0E15\u0E2D\u0E1A")))) : (React.createElement("div", { className: "rounded-xl px-3 py-2 text-sm font-semibold", style: { background: "#eef5f3", color: C.primaryDeep, border: `1px solid ${C.line}` } },
+            React.createElement(Primary, { onClick: doCheck, disabled: nPicked === 0 }, "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E04\u0E33\u0E15\u0E2D\u0E1A")))) : (React.createElement("div", { className: "rounded-xl px-3 py-2 text-sm font-semibold", style: { background: "#eef5f3", color: C.primaryDeep, border: `1px solid ${C.line}` } },
         "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E41\u0E25\u0E49\u0E27 \u00B7 \u0E16\u0E39\u0E01 ",
         got,
         " / 5 \u0E04\u0E33",
