@@ -735,6 +735,32 @@ function App() {
             return { level: "concern", text: "จำได้ดีตอนแรก (registration ปกติ) แต่มาลืมตอนให้ทวนภายหลัง (recall ต่ำ) — เข้าได้กับรอยโรคที่ฮิปโปแคมปัส" };
         return null;
     }, [answers]);
+    // เฝ้าระวังอัลไซเมอร์: registration ได้ แต่ recall ไม่ได้ และ/หรือ จำภาพบนกระดานครูไม่ได้
+    const adFlag = useMemo(() => {
+        const reg = stByIds([22]), rec = stByIds([10]);
+        const it20 = items.find((i) => i.id === 20), a20 = answers[20];
+        const recallBad = !!(answers[22] && answers[22].done && answers[10] && answers[10].done) && reg.pct >= 80 && rec.pct < 60;
+        const boardBad = !!(it20 && a20 && it20.subs.some((sub, i) => a20[i] != null && a20[i] !== sub.correct));
+        return { recallBad, boardBad, any: recallBad || boardBad, both: recallBad && boardBad };
+    }, [items, answers]);
+    // เฝ้าระวัง prosopagnosia: จำหน้าคนไม่ได้ตั้งแต่ 2 คนขึ้นไป (นายกข้อ 9 + บุคคลสำคัญข้อ 23)
+    const prosopFlag = useMemo(() => {
+        let wrong = 0;
+        if (answers[9] != null && answers[9] !== "current")
+            wrong++;
+        const it23 = items.find((i) => i.id === 23), a23 = answers[23];
+        if (it23 && a23)
+            wrong += it23.subs.filter((sub, i) => a23[i] != null && a23[i] !== sub.correct).length;
+        return wrong >= 2;
+    }, [items, answers]);
+    // เฝ้าระวัง FTD: อ่านอารมณ์สีหน้าผิดตั้งแต่ 2 ข้อขึ้นไป
+    const ftdFlag = useMemo(() => {
+        const it11 = items.find((i) => i.id === 11), a11 = answers[11];
+        if (!it11 || !a11)
+            return false;
+        const wrong = it11.subs.filter((sub, i) => a11[i] != null && a11[i] !== sub.correct).length;
+        return wrong >= 2;
+    }, [items, answers]);
     const reset = () => { setScreen("intro"); setNickname(""); setAge(""); setEduBonus(0); setStep(0); setAnswers({}); setOrder(items.map((_, i) => i)); setRecallPulled(false); memStartRef.current = null; };
     return (React.createElement("div", { style: { background: C.paper, color: C.ink, minHeight: "100vh" }, className: "w-full" },
         React.createElement("div", { className: "mx-auto max-w-2xl px-4 py-6 md:py-8" },
@@ -743,7 +769,7 @@ function App() {
             screen === "intro" && React.createElement(Intro, { nickname: nickname, setNickname: setNickname, age: age, setAge: setAge, eduBonus: eduBonus, setEduBonus: setEduBonus, onStart: () => setScreen("register") }),
             screen === "register" && React.createElement(Register, { wordSet: wordSet, onStart: () => { setStep(0); memStartRef.current = Date.now(); setRecallPulled(false); setOrder(items.map((_, i) => i)); setScreen("test"); } }),
             screen === "test" && (React.createElement(Test, { items: seq, step: step, setStep: goStep, answers: answers, setAns: setAns, onFinish: () => setScreen("results") })),
-            screen === "results" && (React.createElement(Results, { total: total, rawTotal: rawTotal, eduBonus: eduBonus, maxTotal: maxTotal, age: age, nickname: nickname, domains: domains, domainResults: domainResults, neglectFlag: neglectFlag, balintFlag: balintFlag, simulFlag: simulFlag, pcaFlag: pcaFlag, anatomy: anatomy, functionRows: functionRows, memInterp: memInterp, onReset: reset, onBack: () => { setStep(seq.length - 1); setScreen("test"); } })),
+            screen === "results" && (React.createElement(Results, { total: total, rawTotal: rawTotal, eduBonus: eduBonus, maxTotal: maxTotal, age: age, nickname: nickname, domains: domains, domainResults: domainResults, neglectFlag: neglectFlag, balintFlag: balintFlag, simulFlag: simulFlag, pcaFlag: pcaFlag, adFlag: adFlag, ftdFlag: ftdFlag, prosopFlag: prosopFlag, anatomy: anatomy, functionRows: functionRows, memInterp: memInterp, onReset: reset, onBack: () => { setStep(seq.length - 1); setScreen("test"); } })),
             React.createElement(Disclaimer, null))));
 }
 function Header() {
@@ -1429,7 +1455,7 @@ function brainAge(total) {
         return { range: "มากกว่า 80 ปี", note: "มีภาวะสมองเสื่อมค่อนข้างมาก", color: C.accent };
     return { range: "มากกว่า 80 ปี", note: "มีภาวะสมองเสื่อมรุนแรง", color: C.accent };
 }
-function Results({ total, rawTotal, eduBonus, maxTotal, age, nickname, domains, domainResults, neglectFlag, balintFlag, simulFlag, pcaFlag, anatomy, functionRows, memInterp, onReset, onBack }) {
+function Results({ total, rawTotal, eduBonus, maxTotal, age, nickname, domains, domainResults, neglectFlag, balintFlag, simulFlag, pcaFlag, adFlag, ftdFlag, prosopFlag, anatomy, functionRows, memInterp, onReset, onBack }) {
     const ref = Math.round((total / maxTotal) * 50); // สเกลเทียบ 50 คะแนน
     const ba = brainAge(ref);
     const actualAge = parseInt(age, 10);
@@ -1499,7 +1525,7 @@ function Results({ total, rawTotal, eduBonus, maxTotal, age, nickname, domains, 
             memInterp && (React.createElement("div", { className: "mt-3 rounded-xl px-3 py-2.5 text-sm", style: { background: "#fdf3f0", color: C.inkSoft, border: "1px solid #f1d3cb" } },
                 React.createElement("span", { className: "font-bold", style: { color: C.accent } }, "\u0E04\u0E27\u0E32\u0E21\u0E08\u0E33: "),
                 memInterp.text))),
-        (concern.length > 0 || neglectFlag || balintFlag || simulFlag) && (React.createElement(Card, null,
+        (concern.length > 0 || neglectFlag || balintFlag || simulFlag || adFlag.any || ftdFlag || prosopFlag) && (React.createElement(Card, null,
             React.createElement(SectionTitle, { icon: React.createElement(AlertTriangle, { size: 16 }) }, "\u0E2A\u0E34\u0E48\u0E07\u0E17\u0E35\u0E48\u0E04\u0E27\u0E23\u0E43\u0E2B\u0E49\u0E04\u0E27\u0E32\u0E21\u0E2A\u0E19\u0E43\u0E08"),
             neglectFlag && (React.createElement("div", { className: "mb-2 rounded-xl px-3 py-2.5", style: { background: "#fdf3f0", border: `1px solid #f1d3cb` } },
                 React.createElement("div", { className: "text-sm font-bold", style: { color: C.accent } }, "\u0E2A\u0E07\u0E2A\u0E31\u0E22\u0E20\u0E32\u0E27\u0E30 neglect \u0E14\u0E49\u0E32\u0E19\u0E0B\u0E49\u0E32\u0E22 (\u0E21\u0E2D\u0E07\u0E02\u0E49\u0E32\u0E21\u0E14\u0E49\u0E32\u0E19\u0E0B\u0E49\u0E32\u0E22\u0E02\u0E2D\u0E07\u0E20\u0E32\u0E1E)"),
@@ -1513,6 +1539,19 @@ function Results({ total, rawTotal, eduBonus, maxTotal, age, nickname, domains, 
             simulFlag && !pcaFlag && (React.createElement("div", { className: "mb-2 rounded-xl px-3 py-2.5", style: { background: "#fdf3f0", border: `1px solid #f1d3cb` } },
                 React.createElement("div", { className: "text-sm font-bold", style: { color: C.accent } }, "\u0E2A\u0E07\u0E2A\u0E31\u0E22 simultanagnosia"),
                 React.createElement("div", { className: "mt-0.5 text-xs", style: { color: C.inkSoft } }, "\u0E21\u0E2D\u0E07\u0E20\u0E32\u0E1E\u0E23\u0E27\u0E21\u0E02\u0E2D\u0E07\u0E20\u0E32\u0E1E\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49 (\u0E40\u0E2B\u0E47\u0E19\u0E40\u0E1B\u0E47\u0E19\u0E2A\u0E48\u0E27\u0E19 \u0E46) \u2014 \u0E40\u0E1B\u0E47\u0E19\u0E2A\u0E48\u0E27\u0E19\u0E2B\u0E19\u0E36\u0E48\u0E07\u0E02\u0E2D\u0E07 Balint syndrome \u0E41\u0E19\u0E30\u0E19\u0E33\u0E43\u0E2B\u0E49\u0E1B\u0E23\u0E36\u0E01\u0E29\u0E32\u0E41\u0E1E\u0E17\u0E22\u0E4C"))),
+            adFlag.any && (React.createElement("div", { className: "mb-2 rounded-xl px-3 py-2.5", style: { background: "#fdf3f0", border: `1px solid #f1d3cb` } },
+                React.createElement("div", { className: "text-sm font-bold", style: { color: C.accent } }, adFlag.both ? "เฝ้าระวังโรคอัลไซเมอร์ (พบ 2 สัญญาณ)" : "เฝ้าระวังโรคอัลไซเมอร์"),
+                React.createElement("div", { className: "mt-0.5 text-xs", style: { color: C.inkSoft } },
+                    adFlag.recallBad ? "จำคำได้ตอนแรก (registration ปกติ) แต่ทวนภายหลังไม่ได้ (recall ต่ำ)" : "",
+                    adFlag.both ? " และ " : "",
+                    adFlag.boardBad ? "จำรายละเอียดของภาพไม่ได้ (รูปบนกระดาน/เพศของครู)" : "",
+                    " \u2014 \u0E40\u0E02\u0E49\u0E32\u0E44\u0E14\u0E49\u0E01\u0E31\u0E1A\u0E04\u0E27\u0E32\u0E21\u0E08\u0E33\u0E2A\u0E48\u0E27\u0E19\u0E2E\u0E34\u0E1B\u0E42\u0E1B\u0E41\u0E04\u0E21\u0E1B\u0E31\u0E2A\u0E40\u0E2A\u0E37\u0E48\u0E2D\u0E21 \u0E41\u0E19\u0E30\u0E19\u0E33\u0E43\u0E2B\u0E49\u0E1B\u0E23\u0E36\u0E01\u0E29\u0E32\u0E41\u0E1E\u0E17\u0E22\u0E4C"))),
+            ftdFlag && (React.createElement("div", { className: "mb-2 rounded-xl px-3 py-2.5", style: { background: "#fdf3f0", border: `1px solid #f1d3cb` } },
+                React.createElement("div", { className: "text-sm font-bold", style: { color: C.accent } }, "\u0E40\u0E1D\u0E49\u0E32\u0E23\u0E30\u0E27\u0E31\u0E07\u0E42\u0E23\u0E04\u0E2A\u0E21\u0E2D\u0E07\u0E40\u0E2A\u0E37\u0E48\u0E2D\u0E21\u0E01\u0E25\u0E35\u0E1A\u0E2B\u0E19\u0E49\u0E32-\u0E02\u0E21\u0E31\u0E1A (FTD)"),
+                React.createElement("div", { className: "mt-0.5 text-xs", style: { color: C.inkSoft } }, "\u0E2D\u0E48\u0E32\u0E19\u0E2D\u0E32\u0E23\u0E21\u0E13\u0E4C\u0E08\u0E32\u0E01\u0E2A\u0E35\u0E2B\u0E19\u0E49\u0E32\u0E1C\u0E34\u0E14\u0E15\u0E31\u0E49\u0E07\u0E41\u0E15\u0E48 2 \u0E02\u0E49\u0E2D\u0E02\u0E36\u0E49\u0E19\u0E44\u0E1B \u2014 \u0E40\u0E02\u0E49\u0E32\u0E44\u0E14\u0E49\u0E01\u0E31\u0E1A\u0E01\u0E32\u0E23\u0E17\u0E33\u0E07\u0E32\u0E19\u0E02\u0E2D\u0E07\u0E2A\u0E21\u0E2D\u0E07\u0E01\u0E25\u0E35\u0E1A\u0E2B\u0E19\u0E49\u0E32 \u0E41\u0E19\u0E30\u0E19\u0E33\u0E43\u0E2B\u0E49\u0E1B\u0E23\u0E36\u0E01\u0E29\u0E32\u0E41\u0E1E\u0E17\u0E22\u0E4C"))),
+            prosopFlag && (React.createElement("div", { className: "mb-2 rounded-xl px-3 py-2.5", style: { background: "#fdf3f0", border: `1px solid #f1d3cb` } },
+                React.createElement("div", { className: "text-sm font-bold", style: { color: C.accent } }, "\u0E40\u0E1D\u0E49\u0E32\u0E23\u0E30\u0E27\u0E31\u0E07 prosopagnosia (\u0E08\u0E33\u0E43\u0E1A\u0E2B\u0E19\u0E49\u0E32\u0E04\u0E19\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49)"),
+                React.createElement("div", { className: "mt-0.5 text-xs", style: { color: C.inkSoft } }, "\u0E08\u0E33\u0E43\u0E1A\u0E2B\u0E19\u0E49\u0E32\u0E1A\u0E38\u0E04\u0E04\u0E25\u0E17\u0E35\u0E48\u0E04\u0E27\u0E23\u0E23\u0E39\u0E49\u0E08\u0E31\u0E01 (\u0E19\u0E32\u0E22\u0E01\u0E23\u0E31\u0E10\u0E21\u0E19\u0E15\u0E23\u0E35/\u0E1A\u0E38\u0E04\u0E04\u0E25\u0E2A\u0E33\u0E04\u0E31\u0E0D) \u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E15\u0E31\u0E49\u0E07\u0E41\u0E15\u0E48 2 \u0E04\u0E19\u0E02\u0E36\u0E49\u0E19\u0E44\u0E1B \u2014 \u0E40\u0E02\u0E49\u0E32\u0E44\u0E14\u0E49\u0E01\u0E31\u0E1A fusiform gyrus \u0E02\u0E27\u0E32 \u0E41\u0E19\u0E30\u0E19\u0E33\u0E43\u0E2B\u0E49\u0E1B\u0E23\u0E36\u0E01\u0E29\u0E32\u0E41\u0E1E\u0E17\u0E22\u0E4C"))),
             concern.map(([k]) => (React.createElement("div", { key: k, className: "mb-2 rounded-xl px-3 py-2.5", style: { background: "#fdf3f0", border: `1px solid #f1d3cb` } },
                 React.createElement("span", { className: "text-sm font-semibold", style: { color: C.ink } },
                     "\u0E14\u0E49\u0E32\u0E19",
