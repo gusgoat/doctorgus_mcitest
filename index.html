@@ -199,6 +199,38 @@ function hashPassword(pw) {
         cur = sha256Bytes(cur);
     return Array.from(cur).map((x) => x.toString(16).padStart(2, "0")).join("");
 }
+/* ลิงก์ Google Apps Script (Web app) สำหรับบันทึกสถิติลง Google Sheet — เว้นว่าง "" = ไม่บันทึก */
+const SHEET_URL = "https://script.google.com/macros/s/AKfycbxYxs_l0oOyCCTLXZoUe3pCp909timVz9xHnAG4g_EzPVcADVjYEb_UKmp48Z_uM_z8/exec";
+const REGION_NAMES = { frontal: "กลีบหน้า", parietal: "กลีบข้าง", temporal: "กลีบขมับซ้าย", fusiform: "fusiform ขวา", occipital: "กลีบท้ายทอย", hippocampus: "ฮิปโปแคมปัส", frontalL: "กลีบหน้าซ้าย", frontalR: "กลีบหน้าขวา", parietalL: "กลีบข้างซ้าย", parietalR: "กลีบข้างขวา", occipitalL: "ท้ายทอยซ้าย", occipitalR: "ท้ายทอยขวา" };
+function buildLogRow(d) {
+    const ref = Math.round((d.total / d.maxTotal) * 50);
+    const ba = brainAge(ref);
+    const round1 = (n) => Math.round(n * 10) / 10;
+    const row = {
+        time: new Date().toISOString(), nickname: d.nickname || "", age: d.age || "", eduBonus: d.eduBonus,
+        total: round1(d.total), maxTotal: d.maxTotal, score50: ref, brainAge: ba.range, brainNote: ba.note || "ปกติ",
+    };
+    Object.keys(d.domains).forEach((k) => {
+        const r = d.domainResults[k];
+        row["domain_" + d.domains[k]] = round1(r.got) + "/" + r.max + " (" + r.pct + "%)";
+    });
+    Object.keys(REGION_NAMES).forEach((k) => { row["region_" + REGION_NAMES[k]] = STATUS[d.anatomy[k] || "na"].label; });
+    row.flag_neglect = d.neglectFlag ? "ใช่" : "";
+    row.flag_balint_pca = d.pcaFlag ? "PCA/Balint" : d.balintFlag ? "Balint" : "";
+    row.flag_simultanagnosia = d.simulFlag ? "ใช่" : "";
+    row.flag_alzheimer = d.adFlag && d.adFlag.any ? (d.adFlag.both ? "2 สัญญาณ" : "ใช่") : "";
+    row.flag_ftd = d.ftdFlag ? "ใช่" : "";
+    row.flag_prosopagnosia = d.prosopFlag ? "ใช่" : "";
+    return row;
+}
+function sendToSheet(row) {
+    if (!SHEET_URL)
+        return;
+    try {
+        fetch(SHEET_URL, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(row) }).catch(() => { });
+    }
+    catch (e) { /* ไม่ให้กระทบการใช้งาน */ }
+}
 const APP_PASSWORD_HASH = "6a97b4af851bcf9b4c64e2dfd60b0a932fd2d2265f59e202a9645debbb031cb9";
 const CONTACT_LINES = [
     "สอบถามข้อมูลเพิ่มเติมได้ที่ นายแพทย์พีรวิชญ์ กิจธนะเสรี",
@@ -509,6 +541,7 @@ function App() {
     const [step, setStep] = useState(0);
     const [answers, setAnswers] = useState({});
     const memStartRef = useRef(null);
+    const loggedRef = useRef(false);
     const [order, setOrder] = useState(null);
     const [recallPulled, setRecallPulled] = useState(false);
     const items = useMemo(() => buildItems(wordSet), [wordSet]);
@@ -761,7 +794,13 @@ function App() {
         const wrong = it11.subs.filter((sub, i) => a11[i] != null && a11[i] !== sub.correct).length;
         return wrong >= 2;
     }, [items, answers]);
-    const reset = () => { setScreen("intro"); setNickname(""); setAge(""); setEduBonus(0); setStep(0); setAnswers({}); setOrder(items.map((_, i) => i)); setRecallPulled(false); memStartRef.current = null; };
+    useEffect(() => {
+        if (screen !== "results" || loggedRef.current)
+            return;
+        loggedRef.current = true;
+        sendToSheet(buildLogRow({ total, maxTotal, nickname, age, eduBonus, domains, domainResults, anatomy, neglectFlag, balintFlag, simulFlag, pcaFlag, adFlag, ftdFlag, prosopFlag }));
+    }, [screen]);
+    const reset = () => { loggedRef.current = false; setScreen("intro"); setNickname(""); setAge(""); setEduBonus(0); setStep(0); setAnswers({}); setOrder(items.map((_, i) => i)); setRecallPulled(false); memStartRef.current = null; };
     return (React.createElement("div", { style: { background: C.paper, color: C.ink, minHeight: "100vh" }, className: "w-full" },
         React.createElement("div", { className: "mx-auto max-w-2xl px-4 py-6 md:py-8" },
             React.createElement(Header, null),
@@ -843,6 +882,7 @@ function Intro({ nickname, setNickname, age, setAge, eduBonus, setEduBonus, onSt
                             o.n,
                             " \u0E04\u0E30\u0E41\u0E19\u0E19")));
                 })))),
+        SHEET_URL && React.createElement("p", { className: "text-xs leading-relaxed", style: { color: C.muted } }, "\u0E40\u0E21\u0E37\u0E48\u0E2D\u0E17\u0E33\u0E41\u0E1A\u0E1A\u0E1B\u0E23\u0E30\u0E40\u0E21\u0E34\u0E19\u0E40\u0E2A\u0E23\u0E47\u0E08 \u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E0A\u0E37\u0E48\u0E2D\u0E40\u0E25\u0E48\u0E19 \u0E2D\u0E32\u0E22\u0E38 \u0E41\u0E25\u0E30\u0E04\u0E30\u0E41\u0E19\u0E19\u0E41\u0E15\u0E48\u0E25\u0E30\u0E14\u0E49\u0E32\u0E19\u0E44\u0E27\u0E49\u0E40\u0E1B\u0E47\u0E19\u0E2A\u0E16\u0E34\u0E15\u0E34 (\u0E44\u0E21\u0E48\u0E21\u0E35\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E17\u0E35\u0E48\u0E23\u0E30\u0E1A\u0E38\u0E15\u0E31\u0E27\u0E15\u0E19\u0E2D\u0E37\u0E48\u0E19 \u0E46) \u0E01\u0E32\u0E23\u0E01\u0E14\u0E40\u0E23\u0E34\u0E48\u0E21\u0E17\u0E33\u0E41\u0E1A\u0E1A\u0E1B\u0E23\u0E30\u0E40\u0E21\u0E34\u0E19\u0E16\u0E37\u0E2D\u0E27\u0E48\u0E32\u0E23\u0E31\u0E1A\u0E17\u0E23\u0E32\u0E1A"),
         React.createElement("div", { className: "flex justify-end" },
             React.createElement(Primary, { onClick: onStart, disabled: !age },
                 "\u0E40\u0E23\u0E34\u0E48\u0E21\u0E17\u0E33\u0E41\u0E1A\u0E1A\u0E1B\u0E23\u0E30\u0E40\u0E21\u0E34\u0E19 ",
@@ -1437,19 +1477,19 @@ function Legend() {
         STATUS[k].label)))));
 }
 function brainAge(total) {
-    if (total >= 47)
+    if (total >= 48)
         return { range: "15–29 ปี", note: "", color: C.green };
-    if (total >= 43)
+    if (total >= 44)
         return { range: "30–39 ปี", note: "", color: C.green };
-    if (total >= 39)
+    if (total >= 40)
         return { range: "40–49 ปี", note: "", color: C.primaryDeep };
     if (total >= 35)
         return { range: "50–59 ปี", note: "", color: C.primaryDeep };
-    if (total >= 31)
+    if (total >= 30)
         return { range: "60–69 ปี", note: "เริ่มมีภาวะสมองเสื่อมบ้างเล็กน้อย", color: C.amber };
     if (total >= 26)
         return { range: "70–80 ปี", note: "มีภาวะสมองเสื่อมเล็กน้อย", color: C.amber };
-    if (total >= 20)
+    if (total >= 21)
         return { range: "มากกว่า 80 ปี", note: "มีภาวะสมองเสื่อมปานกลาง", color: C.accent };
     if (total >= 12)
         return { range: "มากกว่า 80 ปี", note: "มีภาวะสมองเสื่อมค่อนข้างมาก", color: C.accent };
