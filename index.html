@@ -1479,19 +1479,19 @@ function Legend() {
 function brainAge(total) {
     if (total >= 48)
         return { range: "15–29 ปี", note: "", color: C.green };
-    if (total >= 44)
+    if (total >= 45)
         return { range: "30–39 ปี", note: "", color: C.green };
-    if (total >= 40)
+    if (total >= 42)
         return { range: "40–49 ปี", note: "", color: C.primaryDeep };
-    if (total >= 35)
+    if (total >= 39)
         return { range: "50–59 ปี", note: "", color: C.primaryDeep };
-    if (total >= 30)
+    if (total >= 35)
         return { range: "60–69 ปี", note: "เริ่มมีภาวะสมองเสื่อมบ้างเล็กน้อย", color: C.amber };
-    if (total >= 26)
+    if (total >= 29)
         return { range: "70–80 ปี", note: "มีภาวะสมองเสื่อมเล็กน้อย", color: C.amber };
-    if (total >= 21)
+    if (total >= 22)
         return { range: "มากกว่า 80 ปี", note: "มีภาวะสมองเสื่อมปานกลาง", color: C.accent };
-    if (total >= 12)
+    if (total >= 13)
         return { range: "มากกว่า 80 ปี", note: "มีภาวะสมองเสื่อมค่อนข้างมาก", color: C.accent };
     return { range: "มากกว่า 80 ปี", note: "มีภาวะสมองเสื่อมรุนแรง", color: C.accent };
 }
