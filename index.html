@@ -200,7 +200,7 @@ function hashPassword(pw) {
     return Array.from(cur).map((x) => x.toString(16).padStart(2, "0")).join("");
 }
 /* ลิงก์ Google Apps Script (Web app) สำหรับบันทึกสถิติลง Google Sheet — เว้นว่าง "" = ไม่บันทึก */
-const SHEET_URL = "https://script.google.com/macros/s/AKfycbxYxs_l0oOyCCTLXZoUe3pCp909timVz9xHnAG4g_EzPVcADVjYEb_UKmp48Z_uM_z8/exec";
+const SHEET_URL = "https://script.google.com/macros/s/AKfycbxUZlxm2e3JQ24bSqVeVZkmJFpKkR4ufVJxCtpXi0vlxguUJPnrdWwjBXuxz1fDuD0_/exec";
 const REGION_NAMES = { frontal: "กลีบหน้า", parietal: "กลีบข้าง", temporal: "กลีบขมับซ้าย", fusiform: "fusiform ขวา", occipital: "กลีบท้ายทอย", hippocampus: "ฮิปโปแคมปัส", frontalL: "กลีบหน้าซ้าย", frontalR: "กลีบหน้าขวา", parietalL: "กลีบข้างซ้าย", parietalR: "กลีบข้างขวา", occipitalL: "ท้ายทอยซ้าย", occipitalR: "ท้ายทอยขวา" };
 function buildLogRow(d) {
     const ref = Math.round((d.total / d.maxTotal) * 50);
