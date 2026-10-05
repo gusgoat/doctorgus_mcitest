@@ -208,7 +208,7 @@ function buildLogRow(d) {
     const ba = brainAge(ref);
     const round1 = (n) => Math.round(n * 10) / 10;
     const row = {
-        time: new Date().toISOString(), nickname: d.nickname || "", age: d.age || "", eduBonus: d.eduBonus,
+        time: (() => { const t = new Date(Date.now() + 7 * 3600 * 1000).toISOString(); return t.slice(0, 10) + " " + t.slice(11, 19); })(), // เวลาไทย (UTC+7) nickname: d.nickname || "", age: d.age || "", eduBonus: d.eduBonus,
         total: round1(d.total), maxTotal: d.maxTotal, score50: ref, brainAge: ba.range, brainNote: ba.note || "ปกติ",
     };
     Object.keys(d.domains).forEach((k) => {
@@ -471,8 +471,8 @@ function buildItems(wordSet) {
             ], pts: 3 },
         { id: 7, domain: "executive", title: "ความหมายสุภาษิต", kind: "mcqMulti",
             subs: [
-                { q: "“ขี่ช้างจับตั๊กแตน” หมายความว่าอย่างไร", options: ["ลงทุนลงแรงมากเกินกับเรื่องเล็ก", "จับสัตว์ใหญ่", "ทำงานเป็นทีม", "กล้าหาญ"], correct: 0 },
-                { q: "“น้ำขึ้นให้รีบตัก” หมายความว่าอย่างไร", options: ["ระวังน้ำท่วม", "มีโอกาสดีต้องรีบคว้าไว้", "อย่ารีบร้อน", "ประหยัดน้ำ"], correct: 1 },
+                { q: "“ขี่ช้างจับตั๊กแตน” หมายความว่าอย่างไร", options: ["ลงทุนลงแรงมากเกินกับเรื่องเล็ก", "จับสัตว์ใหญ่", "ทำงานเป็นทีม", "กล้าหาญ", "ขี่สัตว์ใหญ่ไล่จับสัตว์เล็ก"], correct: 0 },
+                { q: "“น้ำขึ้นให้รีบตัก” หมายความว่าอย่างไร", options: ["ระวังน้ำท่วม", "มีโอกาสดีต้องรีบคว้าไว้", "อย่ารีบร้อน", "ประหยัดน้ำ", "ตักน้ำเร็ว ๆ ดีกว่าตักน้ำช้า ๆ"], correct: 1 },
             ], pts: 2 },
         { id: 8, domain: "visuospatial", title: "นับจำนวนกล่อง", kind: "cubes",
             prompt: "นับจำนวนกล่องลูกบาศก์ในแต่ละรูป (รวมกล่องที่ถูกบังด้วย) แล้วกรอกตัวเลข",
@@ -730,10 +730,16 @@ function App() {
                 const typed = a.typed || {};
                 return wordSet.reduce((s, w) => s + (typed[w] ? 1 : 0), 0);
             }
-            case "order":
-                if (!a || a.length !== it.correct.length)
+            case "order": {
+                if (!a)
                     return 0;
-                return a.every((x, i) => x === it.correct[i]) ? it.pts : 0;
+                const sq = a.seq || [], fw = a.fwd || [];
+                if (sq.length === it.correct.length && sq.every((x, i) => x === it.correct[i]))
+                    return it.pts; // ย้อนหลังถูก = เต็ม
+                if (fw.length === it.options.length && fw.every((x, i) => x === it.options[i]))
+                    return it.pts / 2; // เรียงไปข้างหน้าถูก = ครึ่งคะแนน
+                return 0;
+            }
             case "recallType": {
                 if (!a)
                     return 0;
@@ -817,9 +823,24 @@ function App() {
     const balintFlag = cancelFlags.balint;
     const simulFlag = cancelFlags.simul;
     const pcaFlag = cancelFlags.pca;
+    // คะแนนย่อยของข้อ B/C/F (ข้อ id 14): "14B" = B ทั้งหมด, "14C" = C ทั้งหมด, "14Cl" = C ฝั่งซ้าย, "14F" = F ทั้งหมด (น้ำหนักตัวละ 1)
+    const letterPart = (key) => {
+        const R = answers[14] && answers[14].results;
+        const m = R && (key === "14B" ? R.B : key === "14F" ? R.F : R.C);
+        if (!m)
+            return { got: 0, max: 1 };
+        const tot = key === "14Cl" ? m.leftTotal : m.total;
+        const fnd = key === "14Cl" ? m.leftFound : m.found;
+        return tot ? { got: fnd / tot, max: 1 } : { got: 1, max: 1 };
+    };
     const stByIds = (ids) => {
         let got = 0, max = 0;
-        ids.forEach((id) => { const it = items.find((i) => i.id === id); if (it) {
+        ids.forEach((id) => { if (typeof id === "string") {
+            const lp = letterPart(id);
+            got += lp.got;
+            max += lp.max;
+            return;
+        } const it = items.find((i) => i.id === id); if (it) {
             got += scoreItem(it);
             max += maxItem(it);
         } });
@@ -829,20 +850,20 @@ function App() {
     const anatomy = useMemo(() => {
         const s = (ids) => stByIds(ids).status;
         return {
-            frontal: s([2, 3, 5, 7, 11, 12, 15, 22]),
-            parietal: s([5, 8, 13, 14, 16, 18, 25]),
+            frontal: s([2, 3, 5, 7, 11, 12, 15, 22, 21, "14C"]),
+            parietal: s([5, 8, 13, "14B", "14Cl", "14F", 16, 18, 25, 21]),
             temporal: s([4, 6, 15, 17]),
             tpL: s([24]),
             arcuate: s([24]),
             fusiform: s([9, 23]),
-            occipital: s([5, 13, 16]),
+            occipital: s([5, 13, 16, "14F"]),
             hippocampus: s([1, 10, 20, 22]),
-            frontalL: s([3, 5, 11, 15, 19, 22]),
-            frontalR: s([2, 5, 7, 11, 12, 22]),
-            parietalL: s([3, 5, 18, 19, 25]),
-            parietalR: s([5, 8, 13, 14, 16]),
-            occipitalL: s([5, 13, 16]),
-            occipitalR: s([5, 13, 16]),
+            frontalL: s([3, 5, 11, 15, 19, 22, 21]),
+            frontalR: s([2, 5, 7, 11, 12, 22, 21]),
+            parietalL: s([3, 5, 19, 25]),
+            parietalR: s([5, 8, 13, "14B", "14Cl", "14F", 16, 18]),
+            occipitalL: s([5, 13, 16, "14F"]),
+            occipitalR: s([5, 13, 16, "14F"]),
         };
     }, [items, answers]);
     const functionRows = useMemo(() => {
@@ -856,10 +877,13 @@ function App() {
             { name: "จดจำใบหน้า / บุคคล", region: "fusiform gyrus", side: "ขวา", ids: [9, 23] },
             { name: "อ่านอารมณ์จากสีหน้า", region: "กลีบหน้า", side: "", ids: [11] },
             { name: "อ่านเวลานาฬิกา", region: "กลีบหน้า (วิเคราะห์) + กลีบข้าง/ท้ายทอย (มิติสัมพันธ์)", side: "", ids: [5] },
-            { name: "ปริภูมิ / neglect", region: "กลีบข้าง", side: "ขวา", ids: [8, 13, 14, 16] },
+            { name: "ปริภูมิ / neglect (ตัว B และ C ฝั่งซ้าย)", region: "กลีบข้าง", side: "ขวา", ids: [8, 13, "14B", "14Cl", 16] },
+            { name: "การมองเห็นวัตถุ (ตัว F)", region: "ท้ายทอย + กลีบข้างขวา (occipitotemporal)", side: "ขวา", ids: ["14F"] },
+            { name: "สมาธิจดจ่อ (ตัว C)", region: "กลีบหน้า", side: "", ids: ["14C"] },
+            { name: "การยับยั้ง / ความยืดหยุ่นทางความคิด (Stroop)", region: "กลีบหน้า (DLPFC + anterior cingulate) + frontoparietal network", side: "", ids: [21] },
             { name: "วางแผน / สมาธิ (executive)", region: "กลีบหน้า", side: "", ids: [2, 7, 12] },
             { name: "ทำท่าเลียนแบบ (praxis)", region: "กลีบข้างซ้าย (left parietal) เป็นหลัก", side: "ซ้าย", ids: [25] },
-            { name: "ประกอบภาพ (visuoconstruction)", region: "กลีบข้าง", side: "", ids: [8, 18] },
+            { name: "ประกอบภาพ (visuoconstruction)", region: "กลีบข้าง", side: "ขวา", ids: [8, 18] },
         ];
         return rows.map((r) => ({ ...r, ...stByIds(r.ids) }));
     }, [items, answers]);
@@ -1109,7 +1133,11 @@ function isAnswered(it, a) {
         case "puzzle": return it.subs.every((_, i) => a[i] != null && a[i] !== "");
         case "serial": return a.done === true;
         case "registration": return a.done === true;
-        case "order": return a.length === it.correct.length;
+        case "order": {
+            const sq = a.seq || [], fw = a.fwd || [];
+            const backOk = sq.length === it.correct.length && sq.every((x, i) => x === it.correct[i]);
+            return backOk || fw.length === it.options.length;
+        }
         case "recallType": return a.done === true;
         case "cancel": return a.done === true;
         case "fluency": return a.done === true;
@@ -1297,19 +1325,42 @@ function CubesView({ it, a, setA }) {
         })));
 }
 function OrderView({ it, a, setA }) {
-    const seq = a || [];
+    const v = a || {};
+    const seq = v.seq || [];
+    const fwd = v.fwd || [];
+    const mode = v.mode || "back";
     const pool = useMemo(() => _shuffle(it.options), []);
-    const remaining = pool.filter((o) => seq.indexOf(o) < 0);
-    const pick = (o) => setA([...seq, o]);
+    const n = it.options.length;
+    const backDone = seq.length === n;
+    const backOk = backDone && seq.every((x, i) => x === it.correct[i]);
+    const fwdDone = fwd.length === n;
+    const fwdOk = fwdDone && fwd.every((x, i) => x === it.options[i]);
+    const cur = mode === "fwd" ? fwd : seq;
+    const remaining = pool.filter((o) => cur.indexOf(o) < 0);
+    const pick = (o) => setA(mode === "fwd" ? { ...v, mode, fwd: [...fwd, o] } : { ...v, mode, seq: [...seq, o] });
+    const gotoFwd = () => setA({ ...v, mode: "fwd", fwd: [] });
+    const gotoBack = () => setA({ ...v, mode: "back", seq: [] });
     return (React.createElement("div", null,
+        mode === "fwd" && (React.createElement("div", { className: "mb-3 rounded-xl px-3 py-2 text-sm font-semibold", style: { background: "#fdf6ec", color: C.amber, border: `1px solid ${C.line}` } },
+            "\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E40\u0E1B\u0E47\u0E19\u0E40\u0E23\u0E35\u0E22\u0E07\u0E44\u0E1B\u0E02\u0E49\u0E32\u0E07\u0E2B\u0E19\u0E49\u0E32: \u0E41\u0E15\u0E30\u0E40\u0E23\u0E35\u0E22\u0E07\u0E08\u0E32\u0E01 ",
+            it.options[0],
+            " \u0E44\u0E1B\u0E08\u0E19\u0E16\u0E36\u0E07 ",
+            it.options[n - 1],
+            " (\u0E16\u0E39\u0E01\u0E44\u0E14\u0E49\u0E04\u0E23\u0E36\u0E48\u0E07\u0E04\u0E30\u0E41\u0E19\u0E19)")),
         React.createElement("p", { className: "mb-3 text-sm", style: { color: C.muted } },
             "\u0E41\u0E15\u0E30\u0E17\u0E35\u0E25\u0E30\u0E15\u0E31\u0E27\u0E15\u0E32\u0E21\u0E25\u0E33\u0E14\u0E31\u0E1A\u0E17\u0E35\u0E48\u0E15\u0E49\u0E2D\u0E07\u0E01\u0E32\u0E23 \u2014 \u0E15\u0E31\u0E27\u0E17\u0E35\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E41\u0E25\u0E49\u0E27\u0E08\u0E30\u0E2B\u0E32\u0E22\u0E44\u0E1B (\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E41\u0E25\u0E49\u0E27 ",
-            seq.length,
+            cur.length,
             "/",
-            it.options.length,
+            n,
             ")"),
-        remaining.length > 0 ? (React.createElement("div", { className: "flex flex-wrap gap-2" }, remaining.map((o) => (React.createElement("button", { key: o, onClick: () => pick(o), className: "rounded-xl px-3 py-2 text-sm font-semibold", style: { border: `1px solid ${C.line}`, background: "#fff", color: C.ink } }, o))))) : (React.createElement("p", { className: "text-sm font-semibold", style: { color: C.primary } }, "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E04\u0E23\u0E1A\u0E17\u0E38\u0E01\u0E15\u0E31\u0E27\u0E41\u0E25\u0E49\u0E27")),
-        seq.length > 0 && React.createElement("button", { onClick: () => setA([]), className: "mt-3 text-xs underline", style: { color: C.muted } }, "\u0E40\u0E23\u0E34\u0E48\u0E21\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E43\u0E2B\u0E21\u0E48")));
+        remaining.length > 0 ? (React.createElement("div", { className: "flex flex-wrap gap-2" }, remaining.map((o) => (React.createElement("button", { key: o, onClick: () => pick(o), className: "rounded-xl px-3 py-2 text-sm font-semibold", style: { border: `1px solid ${C.line}`, background: "#fff", color: C.ink } }, o))))) : mode === "back" ? (backOk ? React.createElement("p", { className: "text-sm font-semibold", style: { color: C.green } }, "\u0E40\u0E23\u0E35\u0E22\u0E07\u0E22\u0E49\u0E2D\u0E19\u0E2B\u0E25\u0E31\u0E07\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07 \u2713 (\u0E40\u0E15\u0E47\u0E21\u0E04\u0E30\u0E41\u0E19\u0E19)")
+            : React.createElement("div", { className: "rounded-xl px-3 py-2 text-sm", style: { background: "#fdf3f0", color: C.accent, border: "1px solid #f1d3cb" } },
+                React.createElement("div", { className: "font-semibold" }, "\u0E25\u0E33\u0E14\u0E31\u0E1A\u0E17\u0E35\u0E48\u0E40\u0E23\u0E35\u0E22\u0E07\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07"),
+                React.createElement("div", { className: "mt-1", style: { color: C.inkSoft } }, "\u0E25\u0E2D\u0E07\u0E40\u0E23\u0E35\u0E22\u0E07\u0E43\u0E2B\u0E21\u0E48 \u0E2B\u0E23\u0E37\u0E2D\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E40\u0E23\u0E35\u0E22\u0E07\u0E44\u0E1B\u0E02\u0E49\u0E32\u0E07\u0E2B\u0E19\u0E49\u0E32\u0E41\u0E17\u0E19 (\u0E44\u0E14\u0E49\u0E04\u0E23\u0E36\u0E48\u0E07\u0E04\u0E30\u0E41\u0E19\u0E19)"))) : (React.createElement("p", { className: "text-sm font-semibold", style: { color: fwdOk ? C.green : C.accent } }, fwdOk ? "เรียงไปข้างหน้าถูกต้อง ✓ (ได้ครึ่งคะแนน)" : "ลำดับยังไม่ถูกต้อง (ไม่ได้คะแนนข้อนี้)")),
+        React.createElement("div", { className: "mt-3 flex flex-wrap gap-4" },
+            cur.length > 0 && React.createElement("button", { onClick: () => setA(mode === "fwd" ? { ...v, fwd: [] } : { ...v, seq: [] }), className: "text-xs underline", style: { color: C.muted } }, "\u0E40\u0E23\u0E34\u0E48\u0E21\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E43\u0E2B\u0E21\u0E48"),
+            mode === "back" && !backOk && React.createElement("button", { onClick: gotoFwd, className: "text-xs font-semibold underline", style: { color: C.primary } }, "\u0E17\u0E33\u0E22\u0E49\u0E2D\u0E19\u0E2B\u0E25\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49 \u2192 \u0E40\u0E23\u0E35\u0E22\u0E07\u0E44\u0E1B\u0E02\u0E49\u0E32\u0E07\u0E2B\u0E19\u0E49\u0E32\u0E41\u0E17\u0E19 (\u0E44\u0E14\u0E49\u0E04\u0E23\u0E36\u0E48\u0E07\u0E04\u0E30\u0E41\u0E19\u0E19)"),
+            mode === "fwd" && React.createElement("button", { onClick: gotoBack, className: "text-xs underline", style: { color: C.muted } }, "\u0E01\u0E25\u0E31\u0E1A\u0E44\u0E1B\u0E25\u0E2D\u0E07\u0E40\u0E23\u0E35\u0E22\u0E07\u0E22\u0E49\u0E2D\u0E19\u0E2B\u0E25\u0E31\u0E07\u0E2D\u0E35\u0E01\u0E04\u0E23\u0E31\u0E49\u0E07"))));
 }
 /* ปุ่มพูดตอบ: อัดเสียง 5 วินาที อัดซ้ำได้ไม่จำกัด แล้วส่งข้อความที่ระบบฟังได้ให้ onText */
 function VoiceBtn({ onText, label }) {
@@ -2298,21 +2349,21 @@ function Legend() {
         STATUS[k].label)))));
 }
 function brainAge(total) {
-    if (total >= 48)
+    if (total >= 47)
         return { range: "15–29 ปี", note: "", color: C.green };
-    if (total >= 45)
+    if (total >= 44)
         return { range: "30–39 ปี", note: "", color: C.green };
-    if (total >= 42)
+    if (total >= 41)
         return { range: "40–49 ปี", note: "", color: C.primaryDeep };
-    if (total >= 39)
+    if (total >= 38)
         return { range: "50–59 ปี", note: "", color: C.primaryDeep };
-    if (total >= 35)
+    if (total >= 34)
         return { range: "60–69 ปี", note: "เริ่มมีภาวะสมองเสื่อมบ้างเล็กน้อย", color: C.amber };
-    if (total >= 29)
+    if (total >= 28)
         return { range: "70–80 ปี", note: "มีภาวะสมองเสื่อมเล็กน้อย", color: C.amber };
-    if (total >= 22)
+    if (total >= 21)
         return { range: "มากกว่า 80 ปี", note: "มีภาวะสมองเสื่อมปานกลาง", color: C.accent };
-    if (total >= 13)
+    if (total >= 12)
         return { range: "มากกว่า 80 ปี", note: "มีภาวะสมองเสื่อมค่อนข้างมาก", color: C.accent };
     return { range: "มากกว่า 80 ปี", note: "มีภาวะสมองเสื่อมรุนแรง", color: C.accent };
 }
