@@ -202,6 +202,7 @@ function hashPassword(pw) {
 }
 /* ลิงก์ Google Apps Script (Web app) สำหรับบันทึกสถิติลง Google Sheet — เว้นว่าง "" = ไม่บันทึก */
 const SHEET_URL = "https://script.google.com/macros/s/AKfycbxUZlxm2e3JQ24bSqVeVZkmJFpKkR4ufVJxCtpXi0vlxguUJPnrdWwjBXuxz1fDuD0_/exec";
+const APP_VERSION = "v15"; // เปลี่ยนเลขนี้ทุกครั้งที่อัปโหลดไฟล์ใหม่ เพื่อเช็กว่าเบราว์เซอร์โหลดเวอร์ชันล่าสุดหรือยัง
 const REGION_NAMES = { frontal: "กลีบหน้า", parietal: "กลีบข้าง", temporal: "กลีบขมับซ้าย", fusiform: "fusiform ขวา", occipital: "กลีบท้ายทอย", hippocampus: "ฮิปโปแคมปัส", tpL: "temporoparietalซ้าย", arcuate: "arcuate fasciculus", frontalL: "กลีบหน้าซ้าย", frontalR: "กลีบหน้าขวา", parietalL: "กลีบข้างซ้าย", parietalR: "กลีบข้างขวา", occipitalL: "ท้ายทอยซ้าย", occipitalR: "ท้ายทอยขวา" };
 function buildLogRow(d) {
     const ref = Math.round((d.total / d.maxTotal) * 50);
@@ -210,7 +211,7 @@ function buildLogRow(d) {
     const row = {
         // เวลาไทย (UTC+7)
         time: (() => { const t = new Date(Date.now() + 7 * 3600 * 1000).toISOString(); return t.slice(0, 10) + " " + t.slice(11, 19); })(),
-        nickname: d.nickname || "", age: d.age || "", eduBonus: d.eduBonus,
+        nickname: d.nickname || "", age: d.age || "", eduBonus: d.eduBonus, app_version: APP_VERSION,
         total: round1(d.total), maxTotal: d.maxTotal, score50: ref, brainAge: ba.range, brainNote: ba.note || "ปกติ",
     };
     Object.keys(d.domains).forEach((k) => {
@@ -1033,7 +1034,10 @@ function Intro({ nickname, setNickname, age, setAge, eduBonus, setEduBonus, onSt
         React.createElement("div", { className: "flex justify-end" },
             React.createElement(Primary, { onClick: onStart, disabled: !age },
                 "\u0E40\u0E23\u0E34\u0E48\u0E21\u0E17\u0E33\u0E41\u0E1A\u0E1A\u0E1B\u0E23\u0E30\u0E40\u0E21\u0E34\u0E19 ",
-                React.createElement(ArrowRight, { size: 18 })))));
+                React.createElement(ArrowRight, { size: 18 }))),
+        React.createElement("p", { className: "text-center text-xs", style: { color: C.muted } },
+            "\u0E40\u0E27\u0E2D\u0E23\u0E4C\u0E0A\u0E31\u0E19\u0E41\u0E2D\u0E1B ",
+            APP_VERSION)));
 }
 function Register({ wordSet, onStart }) {
     const [sec, setSec] = useState(8);
