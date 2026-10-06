@@ -208,7 +208,9 @@ function buildLogRow(d) {
     const ba = brainAge(ref);
     const round1 = (n) => Math.round(n * 10) / 10;
     const row = {
-        time: (() => { const t = new Date(Date.now() + 7 * 3600 * 1000).toISOString(); return t.slice(0, 10) + " " + t.slice(11, 19); })(), // เวลาไทย (UTC+7) nickname: d.nickname || "", age: d.age || "", eduBonus: d.eduBonus,
+        // เวลาไทย (UTC+7)
+        time: (() => { const t = new Date(Date.now() + 7 * 3600 * 1000).toISOString(); return t.slice(0, 10) + " " + t.slice(11, 19); })(),
+        nickname: d.nickname || "", age: d.age || "", eduBonus: d.eduBonus,
         total: round1(d.total), maxTotal: d.maxTotal, score50: ref, brainAge: ba.range, brainNote: ba.note || "ปกติ",
     };
     Object.keys(d.domains).forEach((k) => {
