@@ -202,7 +202,7 @@ function hashPassword(pw) {
 }
 /* ลิงก์ Google Apps Script (Web app) สำหรับบันทึกสถิติลง Google Sheet — เว้นว่าง "" = ไม่บันทึก */
 const SHEET_URL = "https://script.google.com/macros/s/AKfycbxUZlxm2e3JQ24bSqVeVZkmJFpKkR4ufVJxCtpXi0vlxguUJPnrdWwjBXuxz1fDuD0_/exec";
-const APP_VERSION = "v15"; // เปลี่ยนเลขนี้ทุกครั้งที่อัปโหลดไฟล์ใหม่ เพื่อเช็กว่าเบราว์เซอร์โหลดเวอร์ชันล่าสุดหรือยัง
+const APP_VERSION = "v16"; // เปลี่ยนเลขนี้ทุกครั้งที่อัปโหลดไฟล์ใหม่ เพื่อเช็กว่าเบราว์เซอร์โหลดเวอร์ชันล่าสุดหรือยัง
 const REGION_NAMES = { frontal: "กลีบหน้า", parietal: "กลีบข้าง", temporal: "กลีบขมับซ้าย", fusiform: "fusiform ขวา", occipital: "กลีบท้ายทอย", hippocampus: "ฮิปโปแคมปัส", tpL: "temporoparietalซ้าย", arcuate: "arcuate fasciculus", frontalL: "กลีบหน้าซ้าย", frontalR: "กลีบหน้าขวา", parietalL: "กลีบข้างซ้าย", parietalR: "กลีบข้างขวา", occipitalL: "ท้ายทอยซ้าย", occipitalR: "ท้ายทอยขวา" };
 function buildLogRow(d) {
     const ref = Math.round((d.total / d.maxTotal) * 50);
@@ -444,7 +444,7 @@ function buildItems(wordSet) {
             MONTHS, DOW, pts: 3 },
         { id: 2, domain: "attention", title: "ท่องเดือนย้อนหลัง",
             prompt: "แตะชื่อเดือนเรียงจากเดือนสุดท้าย (ธันวาคม) ย้อนไปเดือนแรก (มกราคม)",
-            kind: "order", options: [...MONTHS], correct: [...MONTHS].reverse(), pts: 1 },
+            kind: "order", options: [...MONTHS], correct: [...MONTHS].reverse(), fwd: [[...MONTHS]], pts: 1 },
         { id: 3, domain: "attention", title: "ลบเลขต่อเนื่อง", kind: "serial",
             prompt: "คิดในใจแล้วกรอกคำตอบทีละช่อง เสร็จแล้วกดตรวจคำตอบ",
             phaseA: { label: "100 − 7 แล้วลบ 7 ต่อไปเรื่อย ๆ", subs: [{ label: "100 − 7 =", a: 93 }, { label: "ต่อไป −7 =", a: 86 }, { label: "ต่อไป −7 =", a: 79 }] },
@@ -526,7 +526,10 @@ function buildItems(wordSet) {
             ], pts: 3 },
         { id: 12, domain: "attention", title: "ท่องวันย้อนหลัง",
             prompt: "แตะชื่อวันเรียงย้อนหลัง เริ่มจากวันอาทิตย์",
-            kind: "order", options: [...DOW], correct: [...DOW].reverse(), pts: 1 },
+            kind: "order", options: [...DOW],
+            correct: ["อาทิตย์", "เสาร์", "ศุกร์", "พฤหัสบดี", "พุธ", "อังคาร", "จันทร์"], // ย้อนหลังเริ่มจากวันอาทิตย์ → จันทร์ ตามโจทย์
+            fwd: [["จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์", "อาทิตย์"], [...DOW]], // เรียงไปข้างหน้า: จันทร์→อาทิตย์ หรือ อาทิตย์→เสาร์ ก็ถูก
+            fwdText: "จันทร์ ไปจนถึง อาทิตย์ (หรือเริ่มจาก อาทิตย์ ไปจนถึง เสาร์ ก็ได้)", pts: 1 },
         { id: 13, domain: "visuospatial", title: "ภาพนี้คือเหตุการณ์อะไร", kind: "sceneQ",
             subs: [
                 { q: "ภาพนี้โดยรวมเป็นเหตุการณ์อะไร", options: ["ครูกำลังสอนทำอาหาร", "ครูกำลังสอนเด็กอนุบาล", "ทหารกำลังวางแผนการรบ", "หมอกำลังสอนคนไข้"], correct: 1 },
@@ -739,7 +742,7 @@ function App() {
                 const sq = a.seq || [], fw = a.fwd || [];
                 if (sq.length === it.correct.length && sq.every((x, i) => x === it.correct[i]))
                     return it.pts; // ย้อนหลังถูก = เต็ม
-                if (fw.length === it.options.length && fw.every((x, i) => x === it.options[i]))
+                if (fw.length === it.options.length && (it.fwd || [it.options]).some((q) => fw.every((x, i) => x === q[i])))
                     return it.pts / 2; // เรียงไปข้างหน้าถูก = ครึ่งคะแนน
                 return 0;
             }
@@ -1340,7 +1343,7 @@ function OrderView({ it, a, setA }) {
     const backDone = seq.length === n;
     const backOk = backDone && seq.every((x, i) => x === it.correct[i]);
     const fwdDone = fwd.length === n;
-    const fwdOk = fwdDone && fwd.every((x, i) => x === it.options[i]);
+    const fwdOk = fwdDone && (it.fwd || [it.options]).some((q) => fwd.every((x, i) => x === q[i]));
     const cur = mode === "fwd" ? fwd : seq;
     const remaining = pool.filter((o) => cur.indexOf(o) < 0);
     const pick = (o) => setA(mode === "fwd" ? { ...v, mode, fwd: [...fwd, o] } : { ...v, mode, seq: [...seq, o] });
@@ -1349,9 +1352,7 @@ function OrderView({ it, a, setA }) {
     return (React.createElement("div", null,
         mode === "fwd" && (React.createElement("div", { className: "mb-3 rounded-xl px-3 py-2 text-sm font-semibold", style: { background: "#fdf6ec", color: C.amber, border: `1px solid ${C.line}` } },
             "\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E40\u0E1B\u0E47\u0E19\u0E40\u0E23\u0E35\u0E22\u0E07\u0E44\u0E1B\u0E02\u0E49\u0E32\u0E07\u0E2B\u0E19\u0E49\u0E32: \u0E41\u0E15\u0E30\u0E40\u0E23\u0E35\u0E22\u0E07\u0E08\u0E32\u0E01 ",
-            it.options[0],
-            " \u0E44\u0E1B\u0E08\u0E19\u0E16\u0E36\u0E07 ",
-            it.options[n - 1],
+            it.fwdText || (it.options[0] + " ไปจนถึง " + it.options[n - 1]),
             " (\u0E16\u0E39\u0E01\u0E44\u0E14\u0E49\u0E04\u0E23\u0E36\u0E48\u0E07\u0E04\u0E30\u0E41\u0E19\u0E19)")),
         React.createElement("p", { className: "mb-3 text-sm", style: { color: C.muted } },
             "\u0E41\u0E15\u0E30\u0E17\u0E35\u0E25\u0E30\u0E15\u0E31\u0E27\u0E15\u0E32\u0E21\u0E25\u0E33\u0E14\u0E31\u0E1A\u0E17\u0E35\u0E48\u0E15\u0E49\u0E2D\u0E07\u0E01\u0E32\u0E23 \u2014 \u0E15\u0E31\u0E27\u0E17\u0E35\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E41\u0E25\u0E49\u0E27\u0E08\u0E30\u0E2B\u0E32\u0E22\u0E44\u0E1B (\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E41\u0E25\u0E49\u0E27 ",
